@@ -4,10 +4,6 @@ addPathsToPedFile <- function(ped){
   vcfs <- dir("./", ".final.vcf.gz$", recursive=T)
   bams <-  dir("./", "*bam$", recursive=T)
   vcfBamFiles <- do.call(rbind, lapply(1:nrow(ped), function(i){
-    #print(paste0("Iteration: ", i));
-    #print(paste0("Proband_ID: " , ped$proband_id[i]));
-    #print(paste0("GrepVCFs: ", paste(grep(paste0("/", ped$proband_id[i],"\\."),vcfs), collapse=",")))
-    #print(paste0("FoundVCFs: ",  paste(vcfs[grep(paste0("/", ped$proband_id[i],"\\."), vcfs)], collapse=","))) 
     if (length(grep(paste0("/", ped$proband_id[i],"\\."),vcfs)) == 0){return (NULL)}
     if (length(grep(paste0("/", ped$proband_id[i],"\\."),bams)) == 0){return (NULL)}
     if (length(grep(paste0("/", ped$paternal_id[i],"\\."),vcfs)) == 0){return (NULL)}
@@ -37,7 +33,6 @@ addPathsToPedFile <- function(ped){
                 maternalVCF =maternalVCF,
                 maternalBAM = bams[grep(maternalDir, bams)])
   }))
- # if(nrow(vcfBamFiles) != nrow(ped)){print ("ERROR"); return (0)}
   return( vcfBamFiles)
 }
 
@@ -277,7 +272,8 @@ getPotMosaicFromVCFs <- function(pedWithPaths, nrofcores)
 library(parallel)
 library(data.table)
 library(Rsamtools)
-ped <- read.csv("/mnt/pure/bioinfo/ido/Pawel/PED_2020_01_27.csv", stringsAsFactors=F, header=F)
+path_to_ped <- "" #set path to ped file
+ped <- read.csv(path_to_ped, stringsAsFactors=F, header=F)
 
 print("addPathsToPedFile() - START")
 pedWithPaths <- addPathsToPedFile(ped)
