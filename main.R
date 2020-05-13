@@ -342,7 +342,7 @@ likelyMosaic$MosaicNr <- tab[match( likelyMosaic$ProbandFID, names(tab))]
 likelyMosaic$LowQualSample <- FALSE
 likelyMosaic$LowQualSample [likelyMosaic$MosaicNr > quantile(, 0.95)] <- TRUE
 lowQualFIDs <- likelyMosaic$ProbandFID[which(likelyMosaic$LowQualSample)]
-likelyMosaic <- likelyMosaic [-which(likelyMosaic$ProbandFID %in-% lowQualFIDs),]
+likelyMosaic <- likelyMosaic [-which(likelyMosaic$ProbandFID %in% lowQualFIDs),]
 
 # Removal variants located within Segmental Duplications
 segDup <- read.table(path_to_seg_dup, sep="\t", header=F, stringsAsFactors=F)
