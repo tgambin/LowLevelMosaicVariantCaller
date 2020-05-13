@@ -313,6 +313,7 @@ pedWithPaths <- addPathsToPedFile(ped)
 ###### First tier filtering and pileup extraction ##########
 allPotMosaicDf <- getPotMosaicFromVCFsAndAddPileups(pedWithPaths, 1)
 
+
 ###### Second tier filtering ##########
 # Depth of cov >20; 0.3 >VAF > 0.7 in proband; VAF =0 in one parent and VAF < 0.1 in other;
 likelyMosaic <- allPotMosaicDf[(which(allPotMosaicDf$pr_vRtR > 0.3  & 
@@ -326,6 +327,26 @@ likelyMosaic <- allPotMosaicDf[(which(allPotMosaicDf$pr_vRtR > 0.3  &
 	     (allPotMosaicDf$p2_REF +  allPotMosaicDf$p2_ALT) > 20 
 
 	    )),] 
+
+
+# Annotate using VEP online tool
+vepInput <- likelyMosaic[,c("#CHROM" ,"POS")]
+vepInput$ID <- paste0("var_", 1:nrow(likelyMosaic))
+vepInput <- cbind(vepInput, likelyMosaic[,c("REF", "ALT")])
+vepInput$V1 <- "."
+vepInput$V2 <- "."
+write.table( vepInput, quote=F, row.names=F, col.names=F, sep=" ", file= "likelyMosaic_vepInput.tsv")
+### This file (likelyMosaic_vepInput.tsv) can be uploaded to VEP online and downloaded as likelyMosaic_vepOutput.txt
+vepOut <- fread("likelyMosaic_vepOutput.txt")
+likelyMosaic <- cbind(likelyMosaic, vepOut[match(  paste0("var_", 1:nrow(likelyMosaic)), vepOut$"#Uploaded_variation"),])
+likelyMosaic$gnomAD_AF <- as.numeric(likelyMosaic$gnomAD_AF)
+likelyMosaic$gnomAD_AF[is.na(likelyMosaic$gnomAD_AF)]  <- 0
+likelyMosaic$AF <- as.numeric(likelyMosaic$AF)
+likelyMosaic$AF[is.na(likelyMosaic$AF)]  <- 0
+likelyMosaic$gnomAD_genomes_AF <- as.numeric(likelyMosaic$gnomAD_genomes_AF)
+likelyMosaic$gnomAD_genomes_AF[is.na(likelyMosaic$gnomAD_genomes_AF)]  <- 0
+likelyMosaic$gnomAD_ALL_AF 
+
 
 # Freqyency filtetring gnomAD < 0.0001, CGM_AF < 0.00015
 likelyMosaic$gnomAD_MAX_AF <- pmax(likelyMosaic$gnomAD_genomes_AF, selectedPotMosaicDf$gnomAD_AF)
