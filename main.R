@@ -37,6 +37,26 @@ addPathsToPedFile <- function(ped){
 }
 
 
+getBamData <- function(bamDir)
+{
+	bamIds <- dir(bamDir)
+	bamData <- data.frame(bamIds=bamIds)
+	bamData$bamPath <- sapply(1:nrow(bamData), function(i){
+	  sampleDir <- paste0(bamDir, bamData$bamIds[i] , "/")
+	  sampleFile <-dir( sampleDir,"bam$") [1]; 
+	  samplePath <- paste0(sampleDir, sampleFile)
+
+	  if (!file.exists(samplePath)){
+	   sampleDir <- paste0(bamDir2, bamData$bamIds[i] , "/")
+	   sampleFile <-dir( sampleDir,"bam$") [1]; 
+	   samplePath <- paste0(sampleDir, sampleFile)
+
+	  }
+	  samplePath
+	})
+	bamData
+}
+
 getPileup <- function(	data, sampleId, bamPath)
 {
     library(parallel)
@@ -240,28 +260,63 @@ getPotMosaicFromVCFsAndAddPileups <- function(pedWithPaths, nrofcores)
 	allPotMosaicDf	
 }
 
+
+calcFracSupp <- function(bamData, likelyMosaic)
+{
+	system.time(
+	allPileups2 <- lapply((1:nrow(bamData)), function(i){
+		print(paste0("sample nr ", i))
+		pp <- getPileup (likelyMosaic, bamData$bamIds[i], bamData$bamPath[i])
+		pp
+	}))
+
+	allPileups3 <- allPileups2[-which(sapply(allPileups2, function(x){class(x[,1])}) !="integer")]
+	likelyMosaic$Number_of_samples_with_more_than_0_alt_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,2]})), 1,function(x){length(which(x>0))})
+	likelyMosaic$Number_of_samples_with_more_than_1_alt_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,2]})), 1,function(x){length(which(x>1))})
+	likelyMosaic$Number_of_samples_with_more_than_3_alt_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,2]})), 1,function(x){length(which(x>2))})
+	likelyMosaic$Fraction_of_samples_with_more_than_0_alt_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,2]})), 1,function(x){length(which(x>0))})/length(allPileups3)
+	likelyMosaic$Fraction_of_samples_with_more_than_1_alt_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,2]})), 1,function(x){length(which(x>1))})/length(allPileups3)
+	likelyMosaic$Fraction_of_samples_with_more_than_3_alt_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,2]})), 1,function(x){length(which(x>2))})/length(allPileups3)
+	likelyMosaic$Number_of_samples_with_more_than_0_A_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,3]})), 1,function(x){length(which(x>0))})
+	likelyMosaic$Number_of_samples_with_more_than_0_C_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,4]})), 1,function(x){length(which(x>0))})
+	likelyMosaic$Number_of_samples_with_more_than_0_T_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,5]})), 1,function(x){length(which(x>0))})
+	likelyMosaic$Number_of_samples_with_more_than_0_G_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,6]})), 1,function(x){length(which(x>0))})
+	likelyMosaic$Number_of_samples_with_more_than_0_dels_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,7]})), 1,function(x){length(which(x>0))})
+	likelyMosaic$Number_of_samples_with_more_than_0_dups_reads <- apply(do.call(cbind, lapply(allPileups3,  function(x){x[,8]})), 1,function(x){length(which(x>0))})
+	likelyMosaic <- likelyMosaic[order(likelyMosaic$Fraction_of_samples_with_more_than_0_alt_reads),]
+	likelyMosaic
+}
+
+
+
+
 ### MAIN ####
+
+
+
+# PED file should be csv consisting of the following columns: "family_id","proband_id", "maternal_id", "paternal_id", "sex"
+path_to_ped <- "path_to_ped" #set path to ped file
+
+# Path to segmental dup
+path_to_seg_dup <- "path_to_seg_dup"
+
+# single dir where all bams are stored (could be soft links)
+bamDir <- "path_to_all_bams"
+
+
 library(parallel)
 library(data.table)
 library(Rsamtools)
-# PED file should be csv consisting of the following columns: "family_id","proband_id", "maternal_id", "paternal_id", "sex"
-path_to_ped <- "" #set path to ped file
 ped <- read.csv(path_to_ped, stringsAsFactors=F, header=F)
 
-print("addPathsToPedFile() - START")
+##### Meta-data preparation ####
 pedWithPaths <- addPathsToPedFile(ped)
-print("addPathsToPedFile() - END")
-print(paste0("pedWithPaths nrow: ", nrow(pedWithPaths)))
 
-print("getPotMosaicFromVCFsAndAddPileups - START")
-## second param is the number of cores
+###### First tier filtering and pileup extraction ##########
 allPotMosaicDf <- getPotMosaicFromVCFsAndAddPileups(pedWithPaths, 1)
-print("getPotMosaicFromVCFsAndAddPileups - END")
-print(paste0("nrow (allPotMosaicDf): ", nrow(allPotMosaicDf)))
-print(paste0("ncol (allPotMosaicDf): ", ncol(allPotMosaicDf)))
 
 
-# Second tier filtering
+###### Second tier filtering ##########
 # Depth of cov >20; 0.3 >VAF > 0.7 in proband; VAF =0 in one parent and VAF < 0.1 in other;
 likelyMosaic <- allPotMosaicDf[(which(allPotMosaicDf$pr_vRtR > 0.3  & 
 					allPotMosaicDf$pr_vRtR < 0.7 &
@@ -290,11 +345,16 @@ lowQualFIDs <- likelyMosaic$ProbandFID[which(likelyMosaic$LowQualSample)]
 likelyMosaic <- likelyMosaic [-which(likelyMosaic$ProbandFID %in-% lowQualFIDs),]
 
 # Removal variants located within Segmental Duplications
-path_to_seg_dup <- "path_to_seg_dup"
 segDup <- read.table(path_to_seg_dup, sep="\t", header=F, stringsAsFactors=F)
 library(GenomicRanges)
 segDupsGr <- GRanges(segDup$V1 , IRanges(segDup$V2, segDup$V3))
 likelyMosaicGr <- GRanges(GRanges(paste0("chr", likelyMosaic$CHROM),IRanges(likelyMosaic$POS, likelyMosaic$POS) ))
 mm <- as.matrix(findOverlaps(likelyMosaicGr, segDupsGr))
 likelyMosaic <- likelyMosaic[-mm[,1],]
+
+# Calc FracSupp
+likelyMosaic <- calcFracSupp(getBamData(bamDir), likelyMosaic)
+
+fwrite(likelyMosaic, file="likelyMosaic_with_frac_supp.tsv")
+
 
