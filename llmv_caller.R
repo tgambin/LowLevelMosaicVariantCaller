@@ -348,7 +348,7 @@ likelyMosaic$gnomAD_genomes_AF[is.na(likelyMosaic$gnomAD_genomes_AF)]  <- 0
 likelyMosaic$gnomAD_ALL_AF 
 
 
-# Freqyency filtetring gnomAD < 0.0001, CGM_AF < 0.00015
+# Frequency filtetring: gnomAD < 0.0001, CGM_AF < 0.00015
 likelyMosaic$gnomAD_MAX_AF <- pmax(likelyMosaic$gnomAD_genomes_AF, selectedPotMosaicDf$gnomAD_AF)
 likelyMosaic <- likelyMosaic[(which(likelyMosaic$gnomAD_MAX_AF < 0.0001)),]
 likelyMosaic <- likelyMosaic[(which(likelyMosaic$CMG_AF < 0.00015)),]
@@ -361,7 +361,7 @@ likelyMosaic$LowQualSample [likelyMosaic$MosaicNr > quantile(, 0.95)] <- TRUE
 lowQualFIDs <- likelyMosaic$ProbandFID[which(likelyMosaic$LowQualSample)]
 likelyMosaic <- likelyMosaic [-which(likelyMosaic$ProbandFID %in% lowQualFIDs),]
 
-# Removal variants located within Segmental Duplications
+# Removing variants located within Segmental Duplications
 segDup <- read.table(path_to_seg_dup, sep="\t", header=F, stringsAsFactors=F)
 library(GenomicRanges)
 segDupsGr <- GRanges(segDup$V1 , IRanges(segDup$V2, segDup$V3))
