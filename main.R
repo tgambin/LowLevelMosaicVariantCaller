@@ -244,6 +244,7 @@ getPotMosaicFromVCFsAndAddPileups <- function(pedWithPaths, nrofcores)
 library(parallel)
 library(data.table)
 library(Rsamtools)
+# PED file should be csv consisting of the following columns: "family_id","proband_id", "maternal_id", "paternal_id", "sex"
 path_to_ped <- "" #set path to ped file
 ped <- read.csv(path_to_ped, stringsAsFactors=F, header=F)
 
@@ -281,8 +282,19 @@ likelyMosaic <- likelyMosaic[(which(likelyMosaic$gnomAD_MAX_AF < 0.0001)),]
 likelyMosaic <- likelyMosaic[(which(likelyMosaic$CMG_AF < 0.00015)),]
 
 # Removing 5% of trios with the highest number of candidate mosaic variants
+tab <- table(likelyMosaic$ProbandFID)
+likelyMosaic$MosaicNr <- tab[match( likelyMosaic$ProbandFID, names(tab))]
+likelyMosaic$LowQualSample <- FALSE
+likelyMosaic$LowQualSample [likelyMosaic$MosaicNr > quantile(, 0.95)] <- TRUE
+lowQualFIDs <- likelyMosaic$ProbandFID[which(likelyMosaic$LowQualSample)]
+likelyMosaic <- likelyMosaic [-which(likelyMosaic$ProbandFID %in-% lowQualFIDs),]
 
-# Annotating Segmental Duplications
-
-# saving mosaic candidates
+# Removal variants located within Segmental Duplications
+path_to_seg_dup <- "path_to_seg_dup"
+segDup <- read.table(path_to_seg_dup, sep="\t", header=F, stringsAsFactors=F)
+library(GenomicRanges)
+segDupsGr <- GRanges(segDup$V1 , IRanges(segDup$V2, segDup$V3))
+likelyMosaicGr <- GRanges(GRanges(paste0("chr", likelyMosaic$CHROM),IRanges(likelyMosaic$POS, likelyMosaic$POS) ))
+mm <- as.matrix(findOverlaps(likelyMosaicGr, segDupsGr))
+likelyMosaic <- likelyMosaic[-mm[,1],]
 
