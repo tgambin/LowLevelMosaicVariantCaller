@@ -355,6 +355,6 @@ likelyMosaic <- likelyMosaic[-mm[,1],]
 # Calc FracSupp
 likelyMosaic <- calcFracSupp(getBamData(bamDir), likelyMosaic)
 
-fwrite(likelyMosaic, file="likelyMosaic_with_frac_supp.tsv")
+fwrite(likelyMosaic, file="likelyMosaicWithFracSupp.tsv")
 
 
