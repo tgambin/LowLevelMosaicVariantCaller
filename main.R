@@ -37,9 +37,6 @@ addPathsToPedFile <- function(ped){
 }
 
 
-
-
-
 getPileup <- function(	data, sampleId, bamPath)
 {
     library(parallel)
@@ -159,7 +156,7 @@ addPileups <- function(	data)
 }
 
 
-getPotMosaicFromVCFs <- function(pedWithPaths, nrofcores)
+getPotMosaicFromVCFsAndAddPileups <- function(pedWithPaths, nrofcores)
 {	
 	getAF <- function(vars){
 		as.numeric(sapply(strsplit(vars[,10][[1]], ":"), function(x){x[3]}))
@@ -172,32 +169,7 @@ getPotMosaicFromVCFs <- function(pedWithPaths, nrofcores)
 	}
 
 	getPotentialMosaics <- function(sel ,typeProband, typeParent1, typeParent2){
-    		print("Reading VCF data - START")
-		print("sel: -START")
-		print(sel)
-		print("sel: -END")
-		
-		print("colnames(sel): -START")
-		print(colnames(sel))
-		print("colnames(sel): -END")
-		
-		
-		print("nrow(sel): -START")
-		print(nrow(sel))
-		print("nrow(sel): -END")
-		
-		print("typeProband: -START")
-		print(typeProband)
-		print("typeProband: -END")
-		
-		print("typeParent1: -START")
-		print(typeParent1)
-		print("typeParent1: -END")
-		
-		print("typeParent2: -START")
-		print(typeParent2)
-		print("typeParent2: -END")
-		
+    		
 		
 		print(paste0("reading: ", sel[, typeProband]))
 		probandVars  <- fread(paste0("zcat ",sel[, typeProband]), sep="\t",skip="#CHROM", header=T)    
@@ -279,16 +251,38 @@ print("addPathsToPedFile() - START")
 pedWithPaths <- addPathsToPedFile(ped)
 print("addPathsToPedFile() - END")
 print(paste0("pedWithPaths nrow: ", nrow(pedWithPaths)))
-print("getPotentialMosaicFromVCF - START")
 
+print("getPotMosaicFromVCFsAndAddPileups - START")
 ## second param is the number of cores
-allPotMosaicDf <- getPotMosaicFromVCFs(pedWithPaths, 1)
-print("getPotentialMosaicFromVCF - END")
+allPotMosaicDf <- getPotMosaicFromVCFsAndAddPileups(pedWithPaths, 1)
+print("getPotMosaicFromVCFsAndAddPileups - END")
 print(paste0("nrow (allPotMosaicDf): ", nrow(allPotMosaicDf)))
 print(paste0("ncol (allPotMosaicDf): ", ncol(allPotMosaicDf)))
 
-# saving data:
-dir.create("tomek")
-write.table(allPotMosaicDf, paste0("tomek/", "allPotMosaicDf.tsv"), sep="\t", row.names=F)
 
+# Second tier filtering
+# Depth of cov >20; 0.3 >VAF > 0.7 in proband; VAF =0 in one parent and VAF < 0.1 in other;
+likelyMosaic <- allPotMosaicDf[(which(allPotMosaicDf$pr_vRtR > 0.3  & 
+					allPotMosaicDf$pr_vRtR < 0.7 &
+	   ((allPotMosaicDf$p1_ALT==0 & allPotMosaicDf$p2_vRtR >0)| 
+	    (allPotMosaicDf$p2_ALT==0 & allPotMosaicDf$p1_vRtR >0)) &
+	      allPotMosaicDf$p2_vRtR  < 0.1 &
+		allPotMosaicDf$p1_vRtR  < 0.1 &
+	     (allPotMosaicDf$pr_REF +  allPotMosaicDf$pr_ALT) > 20 & 
+	     (allPotMosaicDf$p1_REF +  allPotMosaicDf$p1_ALT) > 20 & 
+	     (allPotMosaicDf$p2_REF +  allPotMosaicDf$p2_ALT) > 20 
+
+	    )),] 
+
+
+# Freqyency filtetring gnomAD < 0.0001, CGM_AF < 0.00015
+likelyMosaic$gnomAD_MAX_AF <- pmax(likelyMosaic$gnomAD_genomes_AF, selectedPotMosaicDf$gnomAD_AF)
+likelyMosaic <- likelyMosaic[(which(likelyMosaic$gnomAD_MAX_AF < 0.0001)),]
+likelyMosaic <- likelyMosaic[(which(likelyMosaic$CMG_AF < 0.00015)),]
+
+# Removing 5% of trios with the highest number of candidate mosaic variants
+
+# Annotating Segmental Duplications
+
+# saving mosaic candidates
 
