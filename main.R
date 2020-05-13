@@ -289,32 +289,29 @@ calcFracSupp <- function(bamData, likelyMosaic)
 
 
 
-
-### MAIN ####
-
-
-
-# PED file should be csv consisting of the following columns: "family_id","proband_id", "maternal_id", "paternal_id", "sex"
-path_to_ped <- "path_to_ped" #set path to ped file
-
-# Path to segmental dup
-path_to_seg_dup <- "path_to_seg_dup"
-
-# single dir where all bams are stored (could be soft links)
-bamDir <- "path_to_all_bams"
-
+#########################################################
+##################### MAIN ##############################
+#########################################################
 
 library(parallel)
 library(data.table)
 library(Rsamtools)
-ped <- read.csv(path_to_ped, stringsAsFactors=F, header=F)
+
+##### Paths to be set ####
+# PED file should be csv consisting of the following columns: "family_id","proband_id", "maternal_id", "paternal_id", "sex"
+path_to_ped <- "path_to_ped" #set path to ped file
+# Path to segmental dup
+path_to_seg_dup <- "path_to_seg_dup"
+# single dir where all bams are stored (could be soft links)
+bamDir <- "path_to_all_bams"
+
 
 ##### Meta-data preparation ####
+ped <- read.csv(path_to_ped, stringsAsFactors=F, header=F)
 pedWithPaths <- addPathsToPedFile(ped)
 
 ###### First tier filtering and pileup extraction ##########
 allPotMosaicDf <- getPotMosaicFromVCFsAndAddPileups(pedWithPaths, 1)
-
 
 ###### Second tier filtering ##########
 # Depth of cov >20; 0.3 >VAF > 0.7 in proband; VAF =0 in one parent and VAF < 0.1 in other;
@@ -329,7 +326,6 @@ likelyMosaic <- allPotMosaicDf[(which(allPotMosaicDf$pr_vRtR > 0.3  &
 	     (allPotMosaicDf$p2_REF +  allPotMosaicDf$p2_ALT) > 20 
 
 	    )),] 
-
 
 # Freqyency filtetring gnomAD < 0.0001, CGM_AF < 0.00015
 likelyMosaic$gnomAD_MAX_AF <- pmax(likelyMosaic$gnomAD_genomes_AF, selectedPotMosaicDf$gnomAD_AF)
@@ -355,6 +351,10 @@ likelyMosaic <- likelyMosaic[-mm[,1],]
 # Calc FracSupp
 likelyMosaic <- calcFracSupp(getBamData(bamDir), likelyMosaic)
 
+####### Saving the results ##########
 fwrite(likelyMosaic, file="likelyMosaicWithFracSupp.tsv")
 
+#########################################################
+################### END OF MAIN #########################
+#########################################################
 
